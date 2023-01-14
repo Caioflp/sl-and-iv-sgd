@@ -1,7 +1,5 @@
 """Experiments are run from here"""
 
-import logging
-
 from src.experiments import ArticleDeconvolutionExample
 from src.utils.logs import setup_main_logger
 
