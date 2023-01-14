@@ -29,3 +29,8 @@ as run.
 ```sh
     PYTHONPATH=..:$PYTHONPATH python main.py
 ```
+
+Alternitively, you may run `main.py` as a package, using the following command from the repository root:
+```sh
+  python -m src.main
+```
