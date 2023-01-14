@@ -30,7 +30,7 @@ as run.
     PYTHONPATH=..:$PYTHONPATH python main.py
 ```
 
-Alternitively, you may run `main.py` as a package, using the following command from the repository root:
+Alternitively, you may treat `src` as a package and run `main.py` as a submodule, using the following command from the repository root:
 ```sh
   python -m src.main
 ```
