@@ -4,6 +4,9 @@ Code Implementations for the paper 'Statistical Learning and Inverse
 Problems: A Stochastic Gradient Descent Approach', published in NeurIPS
 2022.
 
+**We implement both algorithms proposed by the article on the deconvolution
+example.**
+
 ## Repository structure
 
 * `res`: Resources directory. Contains useful articles and books.
