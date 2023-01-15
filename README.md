@@ -34,3 +34,11 @@ Alternitively, you may treat `src` as a package and run `main.py` as a submodule
 ```sh
   python -m src.main
 ```
+
+## Tasks
+
+### Today
+
+* Complete the deconvolution example with other algorithms.
+
+### Pending
