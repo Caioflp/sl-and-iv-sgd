@@ -18,7 +18,7 @@ logger = logging.getLogger("main.experiment.model")
 
 
 @dataclass
-class SGDSIPDeconvolution1D(sklearn.base.BaseEstimator):
+class SGDSIPDeconvolution1D(BaseEstimator):
     """Implements a SGD algorithm for the deconvolution problem in 1D
 
     Parameters
@@ -56,7 +56,7 @@ class SGDSIPDeconvolution1D(sklearn.base.BaseEstimator):
         return self.kernel(x - w)
 
 
-    def fit(self, X: np.ndarray, y: np.ndarray) -> sklearn.base.BaseEstimator:
+    def fit(self, X: np.ndarray, y: np.ndarray) -> BaseEstimator:
         """Fit model.
 
         Parameters
@@ -79,8 +79,7 @@ class SGDSIPDeconvolution1D(sklearn.base.BaseEstimator):
             # pylint: disable=unused-argument
             def learning_rate(x: float):
                 return np.float64(1/np.sqrt(n_iter))
-        else:
-            learning_rate = self.learning_rate
+            self.learning_rate = learning_rate
         self.estimates_ = np.empty((n_iter+1, n_points), dtype=np.float64)
         self.estimates_[0, :] = initial_guess_array
         for it, (sample_x, sample_y) in enumerate(zip(X, y), start=1):
@@ -95,8 +94,10 @@ class SGDSIPDeconvolution1D(sklearn.base.BaseEstimator):
                 self.phi(sample_x, self.discretized_domain)
                 * self.loss.grad(sample_y, current_estimate_convolution)
             )
-            self.estimates_[it, :] = (self.estimates_[it-1, :]
-                                      - learning_rate(n_iter) * grad_estimate)
+            self.estimates_[it, :] = (
+                self.estimates_[it-1, :]
+                - self.learning_rate(n_iter) * grad_estimate
+            )
         self.estimate_ = 1/n_iter * np.sum(self.estimates_, axis=0)
 
         return self
@@ -142,10 +143,7 @@ class Tree(WeakLearner):
 
 
 class Spline(WeakLearner):
-    """ We use the sklearn defaults (which include L2 loss) and only change the
-    max depth of the tree.
-
-    """
+    """ We use the scipy implementation of B-splines. """
     def __init__(self, degree: int = 3):
         super().__init__()
         self.degree = degree
@@ -199,6 +197,22 @@ class MLSGDDeconvolution1D(BaseEstimator):
     fixed_learning_rate: bool = False
 
 
+    def predict_for_fit(self, X: float):
+        """ Apply estimators to obtain prediction during training. """
+        assert hasattr(self, "estimator_list")
+        result = self.initial_guess(X)
+        for i, estimator in enumerate(self.estimator_list, start=1):
+            result -= self.learning_rate(i) * estimator(X)
+        return result
+
+
+    def predict(self, X: float):
+        """ Apply estimators to obtain final prediction. """
+        result = self.predict_for_fit(X)
+        result /= len(self.estimator_list) # Divide by n_samples
+        return result
+
+
     def phi(self, x: np.ndarray, w: np.ndarray) -> np.ndarray:
         return self.kernel(x - w)
 
@@ -213,27 +227,25 @@ class MLSGDDeconvolution1D(BaseEstimator):
 
         """
         n_points = int((self.end-self.start)/self.step+1)
-        # pylint: disable=attribute-defined-outside-init
         self.discretized_domain = np.linspace(
             self.start,
             self.end,
             n_points,
         )
-        initial_guess_array = \
-                np.vectorize(self.initial_guess)(self.discretized_domain)
+
+        self.estimator_list = []
+
         n_iter = X.shape[0]
         if self.fixed_learning_rate:
             # pylint: disable=unused-argument
             def learning_rate(x: float):
                 return np.float64(1/np.sqrt(n_iter))
-        else:
-            learning_rate = self.learning_rate
-        self.estimates_ = np.empty((n_iter+1, n_points), dtype=np.float64)
-        self.estimates_[0, :] = initial_guess_array
+            self.learning_rate = learning_rate
+
         for it, (sample_x, sample_y) in enumerate(zip(X, y), start=1):
             logger.info(f"Iteration {it} of {n_iter}.")
-            current_estimate_convolution = utils.math.convolve_array(
-                self.estimates_[it-1, :],
+            current_estimate_convolution = utils.math.convolve(
+                self.predict_for_fit,
                 self.kernel,
                 sample_x,
                 self.discretized_domain,
@@ -242,8 +254,8 @@ class MLSGDDeconvolution1D(BaseEstimator):
                 self.phi(sample_x, self.discretized_domain)
                 * self.loss.grad(sample_y, current_estimate_convolution)
             )
-            self.estimates_[it, :] = (self.estimates_[it-1, :]
-                                      - learning_rate(n_iter) * grad_estimate)
-        self.estimate_ = 1/n_iter * np.sum(self.estimates_, axis=0)
+            new_estimator = self.weak_learner_factory()
+            new_estimator.fit(self.discretized_domain, grad_estimate)
+            self.estimator_list.append(new_estimator)
 
         return self
