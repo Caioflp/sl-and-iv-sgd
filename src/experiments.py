@@ -14,7 +14,12 @@ import numpy as np
 
 from src import losses
 from src.data import synthetic_data
-from src.models import SGDSIPDeconvolution1D
+from src.models import (
+    SGDSIPDeconvolution1D,
+    MLSGDDeconvolution1D,
+    Tree,
+    Spline
+)
 from src.utils.paths import PROJECT_ROOT, InPath
 from src.utils.logs import FORMATTER
 
@@ -32,10 +37,6 @@ class Experiment(abc.ABC):
 
     @abc.abstractmethod
     def get_experiment_params_dict(self) -> dict:
-        pass
-
-    @abc.abstractmethod
-    def make_model(self):
         pass
 
     def save_params_dict(self):
@@ -84,52 +85,77 @@ class Experiment(abc.ABC):
 
 
 class ArticleDeconvolutionExample(Experiment):
-    """This experiment is aimed at recreating the the article's plots."""
+    """This experiment is aimed at recreating the the article's plots for the
+    deconvolution example."""
     path = PROJECT_ROOT / "runs" / "article_deconvolution_example"
     path.mkdir(parents=True, exist_ok=True)
     def __init__(self):
+        self.has_models = False
         super().__init__()
 
 
     def get_experiment_params_dict(self) -> dict:
-        assert self.has_model
-        params = self.model.get_params()
+        assert self.has_models
+        params = {model.name: model.get_params() for model in self.models}
         return params
 
 
-    def make_model(self) -> Experiment:
+    def make_models(self) -> Experiment:
+        """ Instatiate models for experiment """
         self.logger.info("Instantiating model for experiment.")
         # pylint: disable=attribute-defined-outside-init
-        self.model = SGDSIPDeconvolution1D(
-            start = -10,
-            end = 10,
-            step = 1E-1,
-            kernel = lambda x: np.float64(x >= 0),
-            initial_guess = lambda x: np.zeros_like(x),
-            learning_rate = lambda i: np.float64(1/np.sqrt(i)),
-            loss = losses.SquaredLoss(),
-            fixed_learning_rate = True,
+        commom_params = {
+            "start": -10,
+            "end": 10,
+            "kernel": lambda x: np.float64(x >= 0),
+            "initial_guess": lambda x: np.zeros_like(x),
+            "learning_rate": lambda i: np.float64(1/np.sqrt(i)),
+            "loss": losses.SquaredLoss(),
+            "fixed_learning_rate": True
+
+        }
+        self.sgd = SGDSIPDeconvolution1D(
+            **commom_params,
+            step=1E-1,
+            name="SGD"
         )
-        self.has_model = True
+        self.mlsgd_tree = MLSGDDeconvolution1D(
+            **commom_params,
+            step=5E-1,
+            weak_learner_factory = lambda: Tree(max_depth=1),
+            name = "MLSGD Tree",
+        )
+        self.mlsgd_spline = MLSGDDeconvolution1D(
+            **commom_params,
+            step=1,
+            weak_learner_factory = lambda: Spline(degree=3),
+            name = "MLSGD Spline",
+        )
+        self.models = [self.sgd, self.mlsgd_tree, self.mlsgd_spline]
+        # self.models = [self.mlsgd_tree, self.mlsgd_spline]
+        self.has_models = True
         self.params = self.get_experiment_params_dict()
 
 
-    def fit_model(
+    def save_models(self):
+        self.logger.info("Saving fitted models.")
+        for model in self.models:
+            with open(f"{model.name}_model.pkl", "wb") as file:
+                pickle.dump(model, file)
+
+
+    def fit_models(
         self,
         features: np.ndarray,
         target: np.ndarray = None,
         force_refit: bool = False
     ) -> None:
-        """Fit model."""
-        assert self.has_model
-        model_path = self.find_fitted_model()
-        if model_path is None or force_refit:
-            self.logger.info("Fitting model.")
-            self.model.fit(features, target)
-            self.logger.info("Model fitted.")
-        else:
-            self.logger.info("Loading pre-trained model.")
-            self.model = pickle.load(model_path)
+        # pylint: disable=unused-argument
+        """Fit models."""
+        assert self.has_models
+        for model in self.models:
+            self.logger.info(f"Fitting {model.name} model.")
+            model.fit(features, target)
         self.is_fitted = True
 
 
@@ -144,20 +170,27 @@ class ArticleDeconvolutionExample(Experiment):
             # step_obs = 1E-1,
             noise_var = 0.01,
             random_observations = True,
-            n_samples = 1000
+            n_samples = 2000
         )
         return data
 
 
     def make_target_plot(self, plots_path: Path):
         """Creates plot like the article"s."""
+        assert self.is_fitted
         fig, ax = plt.subplots()
-        plot_x = self.model.discretized_domain
-        ax.plot(plot_x, self.model.estimate_, "b-", label="Estimate")
+        plot_x = self.models[0].discretized_domain
         ax.plot(plot_x, np.exp(-plot_x**2), "r--", label="Truth")
+        for model in self.models:
+            ax.plot(
+                plot_x,
+                model.predict(plot_x),
+                "-",
+                label=f"{model.name}'s estimate"
+            )
         ax.set_xlabel("w")
         ax.legend()
-        fig.savefig(plots_path / "truth_and_estimate.pdf")
+        fig.savefig(plots_path / "truth_and_estimates.pdf")
 
 
     def make_observation_plot(
@@ -189,7 +222,7 @@ class ArticleDeconvolutionExample(Experiment):
     ) -> None:
         """Make all plots"""
         plots_path = Path("./fig")
-        self.logger.debug("Creating folder for plots.")
+        self.logger.info("Creating folder for plots.")
         plots_path.mkdir(exist_ok=True)
 
         self.make_target_plot(plots_path)
@@ -199,11 +232,11 @@ class ArticleDeconvolutionExample(Experiment):
     def run(self) -> None:
         """Run the experiment"""
         run_path = self.setup_run()
-        if not self.has_model:
-            self.make_model()
+        if not self.has_models:
+            self.make_models()
         with InPath(run_path):
             self.save_params_dict()
             X, y_noised, y_true = self.make_data()
-            self.fit_model(X, y_noised)
-            self.save_model()
+            self.fit_models(X, y_noised)
+            self.save_models()
             self.make_plots(X, y_noised, y_true)

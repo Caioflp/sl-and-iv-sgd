@@ -9,7 +9,7 @@ from src.utils.math import convolve
 
 
 logger = logging.getLogger("main.experiment.data")
-RNG = np.random.default_rng(42)
+RNG = np.random.default_rng()
 
 
 def make_noised_convolution(

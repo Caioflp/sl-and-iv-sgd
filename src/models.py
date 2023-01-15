@@ -50,7 +50,7 @@ class SGDSIPDeconvolution1D(BaseEstimator):
     learning_rate: Callable[[int], float] = lambda i: 1/np.sqrt(i)
     loss: losses.LossWithGradient = losses.SquaredLoss()
     fixed_learning_rate: bool = False
-
+    name: str = "SGD"
 
     def phi(self, x: np.ndarray, w: np.ndarray) -> np.ndarray:
         return self.kernel(x - w)
@@ -100,8 +100,15 @@ class SGDSIPDeconvolution1D(BaseEstimator):
             )
         self.estimate_ = 1/n_iter * np.sum(self.estimates_, axis=0)
 
+        self.is_fitted = True
         return self
 
+
+    def predict(self, X: np.ndarray):
+        """ Predict method for compatibility with other estimators. """
+        assert self.is_fitted
+        assert X.shape == self.estimate_.shape
+        return self.estimate_
 
 class WeakLearner(abc.ABC):
     """Weak learner to be used in MLSGD algorithm.
@@ -119,7 +126,7 @@ class WeakLearner(abc.ABC):
         """Fit weak learner to gradient estimate."""
 
 
-    @abc.abstracmethod
+    @abc.abstractmethod
     def __call__(self, X):
         """Call weak estimator on some input."""
 
@@ -135,10 +142,18 @@ class Tree(WeakLearner):
 
 
     def fit(self, X: np.ndarray, y: np.ndarray):
+        X = np.array(X).reshape(-1, 1)
         self.estimator.fit(X, y)
 
 
     def __call__(self, X: np.ndarray):
+        X = np.array(X)
+        if len(X.shape) == 0:
+            X = X.reshape(1, 1)
+            return self.estimator.predict(X).item()
+        if len(X.shape) == 1:
+            X = X.reshape(-1, 1)
+            return self.estimator.predict(X)
         return self.estimator.predict(X)
 
 
@@ -195,6 +210,7 @@ class MLSGDDeconvolution1D(BaseEstimator):
     learning_rate: Callable[[int], float] = lambda i: 1/np.sqrt(i)
     loss: losses.LossWithGradient = losses.SquaredLoss()
     fixed_learning_rate: bool = False
+    name: str = "MLSGD"
 
 
     def predict_for_fit(self, X: float):
@@ -207,9 +223,22 @@ class MLSGDDeconvolution1D(BaseEstimator):
 
 
     def predict(self, X: float):
-        """ Apply estimators to obtain final prediction. """
-        result = self.predict_for_fit(X)
-        result /= len(self.estimator_list) # Divide by n_samples
+        """ Apply estimators to obtain final prediction.
+
+        What we are doing is equivalent to 1/n sum_i=1^n g_i,
+        where g_i = g_i-1 - alpha_i * h_i, with g_0 being the initial guess,
+        alpha_i the learning rate for iteration i and h_i the weak learner for
+        iteration i.
+
+        We basically expandend the sum in terms of alpha_i and h_i and
+        collected like terms.
+
+        """
+        N = len(self.estimator_list)
+        result = (N + 1) * self.initial_guess(X)
+        for i, estimator in enumerate(self.estimator_list, start=1):
+            result -= (N + 1 - i) * self.learning_rate(i) * estimator(X)
+        result /= N
         return result
 
 

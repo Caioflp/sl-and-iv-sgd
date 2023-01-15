@@ -13,7 +13,7 @@ logger = logging.getLogger("main.math")
 
 def convolve_array(
     func_samples: np.ndarray,
-    kernel: Callable[[float], float],
+    kernel: Callable[[np.ndarray], np.ndarray],
     x: float,
     domain: np.ndarray,
 ) -> float:
@@ -24,13 +24,14 @@ def convolve_array(
 
     """
     assert domain[0] <= x <= domain[-1]
-    samples = np.vectorize(lambda w: kernel(x - w))(domain) * func_samples
+    # samples = np.vectorize(lambda w: kernel(x - w))(domain) * func_samples
+    samples = kernel(x - domain) * func_samples
     return simpson(samples, domain)
 
 
 def convolve(
-    func: Callable[[float], float],
-    kernel: Callable[[float], float],
+    func: Callable[[np.ndarray], np.ndarray],
+    kernel: Callable[[np.ndarray], np.ndarray],
     x: float,
     domain: np.ndarray,
 ) -> float:
@@ -40,5 +41,6 @@ def convolve(
 
     """
     assert domain[0] <= x <= domain[-1]
-    samples = np.vectorize(lambda w: kernel(x - w) * func(w))(domain)
+    # samples = np.vectorize(lambda w: kernel(x - w) * func(w))(domain)
+    samples = kernel(x - domain) * func(domain)
     return simpson(samples, domain)
