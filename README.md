@@ -22,6 +22,13 @@ example.**
 * `src/runs`: Folder where experiment output is stored. This includes
   trained models, visualizations as well as log files.
 
+## Instructions
+
+Install the project requirements with
+```sh
+    pip install -r requirements.txt
+```
+
 After running an experiment (with `exp.run()`) from `src/main.py`, its
 output will be located at `src/runs/<experiment ID>`, where
 `experiment ID` is the date, including hour, minute and second, when it
