@@ -27,6 +27,10 @@ output will be located at `src/runs/<experiment ID>`, where
 `experiment ID` is the date, including hour, minute and second, when it
 as run.
 
+We have implemented one experiment, which creates a plot comparing the
+estimates obtained with the two proposed algorithms on the deconvolution
+problem.
+
 Make sure you add the root directory directory to `PYTHONPATH` before running
 `src/main.py`. For example, from within `src/` you may run
 ```sh
@@ -37,11 +41,3 @@ Alternitively, you may treat `src` as a package and run `main.py` as a submodule
 ```sh
   python -m src.main
 ```
-
-## Tasks
-
-### Today
-
-* Complete the deconvolution example with other algorithms.
-
-### Pending
