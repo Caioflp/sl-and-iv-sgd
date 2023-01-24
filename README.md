@@ -4,15 +4,15 @@ Code Implementations for the paper 'Statistical Learning and Inverse
 Problems: A Stochastic Gradient Descent Approach', published in NeurIPS
 2022.
 
-**We implement both algorithms proposed by the article on the deconvolution
+**We implement both algorithms proposed by the article, on the deconvolution
 example.**
 
 ## Repository structure
 
-* `res`: Resources directory. Contains useful articles and books.
+* `res`: Resources directory.
 * `src`: Where all code is located.
 * `src/main.py`: Where all tweaking and thumbling around takes place.
-* `src/tests.py`: Tests for some code in `code/src`.
+* `src/tests.py`: Tests for some parts of the code.
 * `src/utils`: Utilities separated by subject.
 * `src/data`: Where data is stored. Also contains modules for interacting
   with said data.
