@@ -17,7 +17,6 @@ from src import utils
 logger = logging.getLogger("main.experiment.model")
 
 
-@dataclass
 class SGDSIPDeconvolution1D(BaseEstimator):
     """Implements a SGD algorithm for the deconvolution problem in 1D
 
@@ -42,15 +41,28 @@ class SGDSIPDeconvolution1D(BaseEstimator):
         Controls whether to use `1/np.sqrt(n_iter)` as learning rate.
 
     """
-    start: float = -10
-    end: float = 10
-    step: float = 1E-2
-    kernel: Callable[[float], float] = lambda x: np.float64(x > 0)
-    initial_guess: Callable[[float], float] = lambda x: 0.0
-    learning_rate: Callable[[int], float] = lambda i: 1/np.sqrt(i)
-    loss: losses.LossWithGradient = losses.SquaredLoss()
-    fixed_learning_rate: bool = False
-    name: str = "SGD"
+    def __init__(
+        self,
+        start: float = -10,
+        end: float = 10,
+        step: float = 1E-2,
+        kernel: Callable[[float], float] = lambda x: np.float64(x > 0),
+        initial_guess: Callable[[float], float] = lambda x: 0.0,
+        learning_rate: Callable[[int], float] = lambda i: 1/np.sqrt(i),
+        loss: losses.LossWithGradient = losses.SquaredLoss(),
+        fixed_learning_rate: bool = False,
+        name: str = "SGD",
+    ) -> None:
+        self.start = start
+        self.end = end
+        self.step = step
+        self.kernel = kernel
+        self.initial_guess = initial_guess
+        self.learning_rate = learning_rate
+        self.loss = loss
+        self.fixed_learning_rate = fixed_learning_rate
+        self.name  = name
+
 
     def phi(self, x: np.ndarray, w: np.ndarray) -> np.ndarray:
         return self.kernel(x - w)
@@ -172,7 +184,6 @@ class Spline(WeakLearner):
         return splev(X, self.estimator)
 
 
-@dataclass
 class MLSGDDeconvolution1D(BaseEstimator):
     """Implements a gradient-boost like algorithm for the deconvolution
     problem in 1D.
@@ -201,16 +212,29 @@ class MLSGDDeconvolution1D(BaseEstimator):
         Controls whether to use `1/np.sqrt(n_iter)` as learning rate.
 
     """
-    start: float = -10
-    end: float = 10
-    step: float = 1E-2
-    kernel: Callable[[float], float] = lambda x: np.float64(x > 0)
-    initial_guess: Callable[[float], float] = lambda x: 0.0
-    weak_learner_factory: Callable[[], WeakLearner] = lambda: Spline()
-    learning_rate: Callable[[int], float] = lambda i: 1/np.sqrt(i)
-    loss: losses.LossWithGradient = losses.SquaredLoss()
-    fixed_learning_rate: bool = False
-    name: str = "MLSGD"
+    def __init__(
+        self,
+        start: float = -10,
+        end: float = 10,
+        step: float = 1E-2,
+        kernel: Callable[[float], float] = lambda x: np.float64(x > 0),
+        initial_guess: Callable[[float], float] = lambda x: 0.0,
+        weak_learner_factory: Callable[[], WeakLearner] = lambda: Spline(),
+        learning_rate: Callable[[int], float] = lambda i: 1/np.sqrt(i),
+        loss: losses.LossWithGradient = losses.SquaredLoss(),
+        fixed_learning_rate: bool = False,
+        name: str = "MLSGD",
+    ) -> None:
+        self.start = start
+        self.end = end
+        self.step = step
+        self.kernel = kernel
+        self.initial_guess = initial_guess
+        self.weak_learner_factory = weak_learner_factory
+        self.learning_rate = learning_rate
+        self.loss = loss
+        self.fixed_learning_rate = fixed_learning_rate
+        self.name = name
 
 
     def predict_for_fit(self, X: float):

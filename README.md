@@ -48,3 +48,8 @@ Alternitively, you may treat `src` as a package and run `main.py` as a submodule
 ```sh
   python -m src.main
 ```
+
+## To do
+
+* Change the code to Hydra
+* Implement Nesterov Acceleration
